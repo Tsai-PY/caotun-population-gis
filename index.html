@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>南投縣草屯鎮各村里人口年齡分布 GIS 查詢系統</title>
+  <title>草屯鎮 65歲以上人口分布與各村里年齡查詢平台</title>
   
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -12,25 +12,20 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
   
   <style>
     :root {
       --primary: #1e3a8a;
-      --primary-light: #3b82f6;
-      --primary-dark: #0f172a;
-      --accent: #0284c7;
-      --accent-warm: #f59e0b;
-      --success: #10b981;
-      --danger: #ef4444;
-      --bg: #f8fafc;
+      --primary-light: #2563eb;
+      --accent-elder: #993404;
+      --bg: #ffffff;
       --card-bg: #ffffff;
-      --text-main: #1e293b;
-      --text-muted: #64748b;
-      --border: #e2e8f0;
-      --radius: 12px;
-      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --text-main: #1c1917;
+      --text-muted: #57534e;
+      --border: #e7e5e4;
+      --border-dark: #292524;
+      --radius: 10px;
     }
 
     * {
@@ -41,7 +36,7 @@
 
     body {
       font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: var(--bg);
+      background-color: #f5f5f4;
       color: var(--text-main);
       overflow-x: hidden;
       height: 100vh;
@@ -49,67 +44,64 @@
       flex-direction: column;
     }
 
-    /* Header */
+    /* Header Bar */
     header {
-      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #0369a1 100%);
+      background: #1c1917;
       color: white;
-      padding: 10px 20px;
+      padding: 8px 18px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+      border-bottom: 2px solid #292524;
       z-index: 1000;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 10px;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
     .brand-icon {
-      font-size: 26px;
-      color: #38bdf8;
-      background: rgba(255,255,255,0.12);
-      width: 44px;
-      height: 44px;
+      font-size: 22px;
+      color: #f59e0b;
+      width: 36px;
+      height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
     }
 
     .brand-text h1 {
-      font-size: 1.25rem;
+      font-size: 1.15rem;
       font-weight: 700;
-      letter-spacing: 0.5px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
     .brand-text .badge {
-      font-size: 0.72rem;
-      background: #38bdf8;
-      color: #0f172a;
+      font-size: 0.7rem;
+      background: #d95f0e;
+      color: #ffffff;
       font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 999px;
+      padding: 2px 7px;
+      border-radius: 4px;
     }
 
     .brand-text p {
-      font-size: 0.8rem;
-      opacity: 0.85;
-      font-weight: 300;
+      font-size: 0.75rem;
+      color: #a8a29e;
     }
 
     .header-controls {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
     .village-select-wrapper {
@@ -120,67 +112,67 @@
 
     .village-select-wrapper i {
       position: absolute;
-      left: 12px;
-      color: #94a3b8;
+      left: 10px;
+      color: #78716c;
       pointer-events: none;
     }
 
     .village-select {
-      padding: 8px 16px 8px 36px;
-      border-radius: 8px;
-      border: 1px solid rgba(255,255,255,0.3);
-      background: rgba(255,255,255,0.95);
-      color: #0f172a;
+      padding: 6px 14px 6px 32px;
+      border-radius: 6px;
+      border: 1px solid #57534e;
+      background: #292524;
+      color: #f5f5f4;
       font-weight: 600;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       cursor: pointer;
       outline: none;
-      transition: all 0.2s ease;
       min-width: 170px;
+      transition: all 0.2s;
     }
 
-    .village-select:hover, .village-select:focus {
-      background: #ffffff;
-      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.4);
+    .village-select:focus {
+      border-color: #f59e0b;
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4);
     }
 
     .btn {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 0.85rem;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.82rem;
       font-weight: 600;
       cursor: pointer;
       border: none;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
 
-    .btn-light {
-      background: rgba(255,255,255,0.15);
-      color: white;
-      border: 1px solid rgba(255,255,255,0.25);
+    .btn-dark {
+      background: #292524;
+      color: #f5f5f4;
+      border: 1px solid #57534e;
     }
 
-    .btn-light:hover {
-      background: rgba(255,255,255,0.25);
+    .btn-dark:hover {
+      background: #44403c;
     }
 
-    .btn-primary {
-      background: #38bdf8;
-      color: #0f172a;
+    .btn-accent {
+      background: #d95f0e;
+      color: #ffffff;
     }
 
-    .btn-primary:hover {
-      background: #7dd3fc;
+    .btn-accent:hover {
+      background: #b45309;
     }
 
     /* Main Container */
     .app-container {
       flex: 1;
       display: flex;
-      height: calc(100vh - 65px);
+      height: calc(100vh - 58px);
       overflow: hidden;
       position: relative;
     }
@@ -190,148 +182,224 @@
       flex: 1;
       height: 100%;
       position: relative;
+      background: #ffffff;
+      border-right: 2px solid #e7e5e4;
     }
 
     #map {
       width: 100%;
       height: 100%;
-      background: #e5e7eb;
+      background: #ffffff; /* Matching clean white canvas */
     }
 
-    /* Map Overlay Tools */
-    .map-tools-box {
+    /* Map Top Banner (Matching user reference image header) */
+    .map-header-banner {
       position: absolute;
-      top: 15px;
-      left: 60px;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
       z-index: 800;
-      background: rgba(255, 255, 255, 0.94);
-      backdrop-filter: blur(8px);
-      padding: 10px 14px;
-      border-radius: 10px;
-      box-shadow: var(--shadow-lg);
-      border: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-width: 280px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(4px);
+      padding: 8px 24px;
+      border-radius: 8px;
+      border: 1px solid #d6d3d1;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      pointer-events: none;
     }
 
-    .map-tools-title {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--text-muted);
+    .map-header-banner h2 {
+      font-size: 1.12rem;
+      font-weight: 800;
+      color: #0c0a09;
       letter-spacing: 0.5px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
     }
 
-    .theme-select {
-      padding: 6px 10px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      font-size: 0.82rem;
+    .map-header-banner p {
+      font-size: 0.78rem;
       font-weight: 600;
-      background: white;
-      color: var(--text-main);
-      cursor: pointer;
-      outline: none;
-    }
-
-    .toggle-labels {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: var(--text-main);
-      cursor: pointer;
+      color: #44403c;
       margin-top: 2px;
     }
 
-    /* Map Legend */
-    .map-legend {
+    /* Map Tools Box (Top-Left) */
+    .map-tools-box {
       position: absolute;
-      bottom: 25px;
-      left: 15px;
+      top: 12px;
+      left: 56px;
       z-index: 800;
-      background: rgba(255, 255, 255, 0.94);
-      backdrop-filter: blur(8px);
-      padding: 10px 14px;
-      border-radius: 10px;
-      box-shadow: var(--shadow);
-      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(6px);
+      padding: 9px 12px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      border: 1px solid #d6d3d1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
       font-size: 0.78rem;
-      min-width: 180px;
     }
 
-    .map-legend-title {
-      font-weight: 700;
-      margin-bottom: 6px;
-      color: var(--text-main);
+    .map-tools-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: #78716c;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .theme-select {
+      padding: 4px 8px;
+      border-radius: 5px;
+      border: 1px solid #cbd5e1;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: white;
+      color: #1e293b;
+      cursor: pointer;
+    }
+
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    /* Map Legend (Left-Bottom: Matching User Reference Image) */
+    .legend-population {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 800;
+      background: rgba(255, 255, 255, 0.98);
+      border: 1.5px solid #292524;
+      padding: 8px 12px;
+      border-radius: 4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      font-size: 0.8rem;
+      min-width: 140px;
+    }
+
+    .legend-title {
+      font-weight: 800;
+      color: #0c0a09;
+      font-size: 0.82rem;
+      margin-bottom: 5px;
     }
 
     .legend-scale {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
     }
 
     .legend-item {
       display: flex;
       align-items: center;
       gap: 8px;
+      font-size: 0.78rem;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
     }
 
-    .legend-color {
-      width: 18px;
-      height: 12px;
-      border-radius: 2px;
-      border: 1px solid rgba(0,0,0,0.15);
+    .legend-box {
+      width: 22px;
+      height: 13px;
+      border: 1px solid #292524;
+      display: inline-block;
     }
 
-    /* Map Hover Info Box */
+    /* Map Legend (Right-Bottom: 생활處方資源 Matching Image) */
+    .legend-prescriptions {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      z-index: 800;
+      background: rgba(255, 255, 255, 0.98);
+      border: 1.5px solid #292524;
+      padding: 8px 12px;
+      border-radius: 4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      font-size: 0.8rem;
+      min-width: 130px;
+    }
+
+    .dot-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 3px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #1c1917;
+    }
+
+    .point-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.4);
+      display: inline-block;
+    }
+
+    /* Map Hover Box */
     .map-hover-box {
       position: absolute;
       top: 15px;
-      right: 15px;
+      right: 20px;
       z-index: 800;
-      background: rgba(15, 23, 42, 0.88);
-      backdrop-filter: blur(6px);
+      background: rgba(28, 25, 23, 0.92);
+      backdrop-filter: blur(4px);
       color: white;
-      padding: 10px 16px;
-      border-radius: 10px;
-      box-shadow: var(--shadow-lg);
-      font-size: 0.85rem;
-      border: 1px solid rgba(255,255,255,0.15);
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.2);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      font-size: 0.82rem;
       pointer-events: none;
-      transition: opacity 0.2s;
+      transition: opacity 0.15s;
     }
 
     .map-hover-title {
-      font-weight: 700;
-      font-size: 1rem;
-      color: #38bdf8;
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: #facc15;
     }
 
-    /* Sidebar / Info Panel */
+    /* Village Map Label Styling (Exact text style on polygons) */
+    .village-map-label {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: #1c1917 !important;
+      font-weight: 700 !important;
+      font-size: 0.72rem !important;
+      text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    /* Sidebar / Data Panel */
     #sidebar {
       width: 580px;
       height: 100%;
       background: var(--card-bg);
-      border-left: 1px solid var(--border);
-      box-shadow: -4px 0 15px rgba(0,0,0,0.06);
       display: flex;
       flex-direction: column;
       z-index: 900;
-      transition: transform 0.3s ease;
+      box-shadow: -4px 0 15px rgba(0,0,0,0.06);
     }
 
     .sidebar-header {
-      padding: 16px 20px;
-      background: #f8fafc;
-      border-bottom: 1px solid var(--border);
+      padding: 14px 18px;
+      background: #fafaf9;
+      border-bottom: 2px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -339,111 +407,92 @@
     }
 
     .sidebar-title-area h2 {
-      font-size: 1.35rem;
+      font-size: 1.3rem;
       font-weight: 800;
-      color: var(--primary-dark);
+      color: #0c0a09;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 7px;
     }
 
     .sidebar-title-area .sub-title {
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       color: var(--text-muted);
       margin-top: 2px;
-    }
-
-    .sidebar-actions {
-      display: flex;
-      gap: 8px;
     }
 
     .sidebar-content {
       flex: 1;
       overflow-y: auto;
-      padding: 18px 20px;
+      padding: 16px 18px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 16px;
     }
 
-    /* Indicator Cards */
+    /* Stats Grid */
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
+      gap: 9px;
     }
 
     .stat-card {
-      background: #f8fafc;
-      padding: 12px;
-      border-radius: 10px;
-      border: 1px solid #edf2f7;
+      background: #fafaf9;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
       text-align: center;
       position: relative;
-      overflow: hidden;
     }
 
-    .stat-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 3px;
-      background: var(--primary-light);
+    .stat-card.elder {
+      background: #fffbeb;
+      border-color: #fde68a;
     }
 
-    .stat-card.accent::before {
-      background: #f59e0b;
-    }
-
-    .stat-card.success::before {
-      background: #10b981;
-    }
-
-    .stat-card.danger::before {
-      background: #ef4444;
+    .stat-card.elder .stat-value {
+      color: #b45309;
     }
 
     .stat-label {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       color: var(--text-muted);
-      font-weight: 600;
-      margin-bottom: 4px;
+      font-weight: 700;
+      margin-bottom: 3px;
     }
 
     .stat-value {
-      font-size: 1.3rem;
+      font-size: 1.25rem;
       font-weight: 800;
       color: var(--text-main);
       font-family: 'Outfit', sans-serif;
     }
 
     .stat-sub {
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       color: var(--text-muted);
       margin-top: 2px;
     }
 
     /* Demographic Ratio Bar */
     .ratio-bar-box {
-      background: #f8fafc;
-      padding: 14px 16px;
-      border-radius: 10px;
+      background: #fafaf9;
+      padding: 12px 14px;
+      border-radius: 8px;
       border: 1px solid var(--border);
     }
 
     .ratio-bar-header {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 8px;
-      font-size: 0.8rem;
+      margin-bottom: 7px;
+      font-size: 0.78rem;
       font-weight: 700;
     }
 
     .ratio-bar {
-      height: 12px;
+      height: 11px;
       border-radius: 999px;
       overflow: hidden;
       display: flex;
@@ -461,133 +510,119 @@
     }
 
     .ratio-seg-elder {
-      background: #f59e0b;
+      background: #d95f0e;
       height: 100%;
     }
 
     .ratio-bar-legend {
       display: flex;
       justify-content: space-between;
-      margin-top: 8px;
-      font-size: 0.72rem;
+      margin-top: 7px;
+      font-size: 0.7rem;
       color: var(--text-muted);
-    }
-
-    .ratio-bar-legend span {
-      display: flex;
-      align-items: center;
-      gap: 4px;
+      font-weight: 600;
     }
 
     .dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       display: inline-block;
+      margin-right: 3px;
     }
 
     /* Chart Box */
     .chart-box {
       background: #ffffff;
-      padding: 16px;
-      border-radius: 12px;
+      padding: 14px;
+      border-radius: 8px;
       border: 1px solid var(--border);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
 
     .section-title {
-      font-size: 0.95rem;
-      font-weight: 700;
+      font-size: 0.9rem;
+      font-weight: 800;
       color: var(--text-main);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
-    }
-
-    .section-title span {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      margin-bottom: 10px;
     }
 
     .chart-container {
-      height: 280px;
+      height: 250px;
       position: relative;
     }
 
     /* Table Section */
     .table-section {
       background: #ffffff;
-      border-radius: 12px;
+      border-radius: 8px;
       border: 1px solid var(--border);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
       overflow: hidden;
     }
 
     .table-toolbar {
-      padding: 12px 16px;
-      background: #f8fafc;
+      padding: 10px 14px;
+      background: #fafaf9;
       border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
     }
 
     .table-toolbar-title {
-      font-weight: 700;
-      font-size: 0.9rem;
+      font-weight: 800;
+      font-size: 0.88rem;
       display: flex;
       align-items: center;
       gap: 6px;
-      color: var(--primary-dark);
+      color: #0c0a09;
     }
 
     .table-toolbar-tools {
       display: flex;
-      gap: 8px;
-      align-items: center;
+      gap: 6px;
     }
 
     .table-btn {
-      padding: 5px 10px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
+      padding: 4px 8px;
+      border-radius: 5px;
+      border: 1px solid #d6d3d1;
       background: white;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 600;
-      color: var(--text-main);
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      transition: all 0.15s;
     }
 
     .table-btn:hover {
-      background: #f1f5f9;
-      color: var(--primary);
+      background: #f5f5f4;
+      border-color: #a8a29e;
     }
 
     .data-table-wrapper {
-      max-height: 480px;
+      max-height: 440px;
       overflow-y: auto;
     }
 
     table.age-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       text-align: right;
     }
 
     table.age-table th {
-      background: #f1f5f9;
-      color: #334155;
-      font-weight: 700;
-      padding: 9px 12px;
+      background: #f5f5f4;
+      color: #292524;
+      font-weight: 800;
+      padding: 8px 10px;
       position: sticky;
       top: 0;
       z-index: 10;
@@ -603,10 +638,9 @@
     }
 
     table.age-table td {
-      padding: 8px 12px;
-      border-bottom: 1px solid #f1f5f9;
+      padding: 7px 10px;
+      border-bottom: 1px solid #f5f5f4;
       white-space: nowrap;
-      transition: background-color 0.1s;
     }
 
     table.age-table td:first-child {
@@ -623,7 +657,7 @@
     }
 
     table.age-table tr.group-row:hover td {
-      background-color: #f8fafc;
+      background-color: #fafaf9;
     }
 
     table.age-table tr.total-row td {
@@ -633,29 +667,37 @@
       border-bottom: 2px solid #bfdbfe;
     }
 
+    table.age-table tr.elderly-highlight-row td {
+      background-color: #fffdf5;
+    }
+
+    table.age-table tr.elderly-highlight-row:hover td {
+      background-color: #fef3c7;
+    }
+
     table.age-table tr.single-age-row td {
       background-color: #fafafa;
-      font-size: 0.76rem;
-      color: #475569;
-      padding: 5px 12px;
-      border-bottom: 1px dashed #e2e8f0;
+      font-size: 0.74rem;
+      color: #57534e;
+      padding: 4px 10px;
+      border-bottom: 1px dashed #e7e5e4;
     }
 
     table.age-table tr.single-age-row td:first-child {
-      padding-left: 28px;
+      padding-left: 26px;
     }
 
     .age-badge {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
     }
 
     .toggle-icon {
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       color: var(--text-muted);
       transition: transform 0.2s;
-      width: 12px;
+      width: 10px;
     }
 
     .toggle-icon.expanded {
@@ -664,55 +706,30 @@
     }
 
     .male-text {
-      color: #2563eb;
+      color: #1d4ed8;
       font-weight: 600;
     }
 
     .female-text {
-      color: #db2777;
+      color: #be185d;
       font-weight: 600;
     }
 
     .bar-visual-wrap {
       display: flex;
       align-items: center;
-      gap: 6px;
       justify-content: flex-end;
     }
 
     .bar-visual {
-      height: 7px;
-      border-radius: 3px;
+      height: 6px;
+      border-radius: 2px;
       background: #93c5fd;
       display: inline-block;
     }
 
-    /* Custom Leaflet Tooltip */
-    .village-tooltip {
-      background: rgba(15, 23, 42, 0.88) !important;
-      border: 1px solid rgba(255, 255, 255, 0.2) !important;
-      border-radius: 6px !important;
-      color: #ffffff !important;
-      font-weight: 600 !important;
-      font-size: 0.85rem !important;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
-      padding: 6px 10px !important;
-    }
-
-    .village-tooltip::before {
-      border-top-color: rgba(15, 23, 42, 0.88) !important;
-    }
-
-    .village-label-permanent {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      color: #0f172a !important;
-      font-weight: 800 !important;
-      font-size: 0.8rem !important;
-      text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 0 1px 3px rgba(255,255,255,0.9);
-      text-align: center;
-      pointer-events: none;
+    .bar-visual.bar-elder {
+      background: #f59e0b;
     }
 
     /* Responsive */
@@ -722,8 +739,8 @@
         height: auto;
       }
       #map-wrapper {
-        height: 50vh;
-        min-height: 380px;
+        height: 52vh;
+        min-height: 400px;
       }
       #sidebar {
         width: 100%;
@@ -734,158 +751,183 @@
 </head>
 <body>
 
-  <!-- Top Header -->
+  <!-- Top Navigation Header -->
   <header>
     <div class="brand">
       <div class="brand-icon">
         <i class="fa-solid fa-map-location-dot"></i>
       </div>
       <div class="brand-text">
-        <h1>草屯鎮各村里人口年齡分布 GIS 查詢系統 <span class="badge">2026年9月統計</span></h1>
-        <p>南投縣草屯鎮公所戶政統計 ｜ 空間地理資訊與5歲年齡分組互動分析平台</p>
+        <h1>草屯鎮各村里人口年齡分布 GIS 查詢平台 <span class="badge">2026年9月統計</span></h1>
+        <p>空間地理資訊 ｜ 65歲以上人口分布 ｜ 生活處方資源點位 ｜ 5歲年齡分組</p>
       </div>
     </div>
 
     <div class="header-controls">
       <div class="village-select-wrapper">
-        <i class="fa-solid fa-tree-city"></i>
+        <i class="fa-solid fa-magnifying-glass"></i>
         <select id="villageSelect" class="village-select" onchange="onSelectVillageChange(this.value)">
           <!-- Populated by JS -->
         </select>
       </div>
 
-      <button class="btn btn-light" onclick="resetMapView()" title="重置地圖到全鎮範圍">
+      <button class="btn btn-dark" onclick="resetMapView()" title="重置地圖視角">
         <i class="fa-solid fa-arrows-to-eye"></i> 全鎮視角
       </button>
 
-      <button class="btn btn-primary" onclick="exportCurrentCSV()" title="匯出所選村里資料為 CSV">
-        <i class="fa-solid fa-file-csv"></i> 匯出報表
+      <button class="btn btn-accent" onclick="exportCurrentCSV()" title="匯出當前村里 CSV">
+        <i class="fa-solid fa-download"></i> 匯出報表
       </button>
     </div>
   </header>
 
-  <!-- App Body -->
+  <!-- App Main View -->
   <div class="app-container">
     
-    <!-- Map Section -->
+    <!-- Map Canvas (Styled like user reference image) -->
     <div id="map-wrapper">
       <div id="map"></div>
 
-      <!-- Map Overlay Controls -->
+      <!-- Map Banner Title (Matching Image) -->
+      <div class="map-header-banner">
+        <h2>草屯鎮 65歲以上人口分布與生活處方資源點位</h2>
+        <p>(需求：2026年9月村里年齡統計；供給：生活處方 KML)</p>
+      </div>
+
+      <!-- Map Layer & Interaction Controller -->
       <div class="map-tools-box">
         <div class="map-tools-title">
-          <i class="fa-solid fa-layer-group"></i> 地圖指標主題色階
+          <i class="fa-solid fa-sliders"></i> 地圖圖層控制
         </div>
         <select id="themeSelect" class="theme-select" onchange="changeMapTheme(this.value)">
-          <option value="default">預設繽紛行政區塊</option>
-          <option value="total_pop" selected>總人口數分級圖</option>
+          <option value="elderly_count" selected>65歲以上人口數 (人) [圖片樣式]</option>
+          <option value="total_pop">總人口數 (人)</option>
           <option value="elderly_pct">65歲以上高齡比例 (%)</option>
           <option value="youth_pct">0~14歲幼年比例 (%)</option>
-          <option value="working_pct">15~64歲青壯比例 (%)</option>
           <option value="aging_index">老化指數 (老年/幼年*100)</option>
-          <option value="sex_ratio">性別比 (男/女*100)</option>
         </select>
 
-        <label class="toggle-labels">
+        <label class="toggle-item" style="margin-top:2px;">
           <input type="checkbox" id="showLabelsToggle" checked onchange="toggleLabels(this.checked)">
-          顯示村里名稱標籤
+          顯示村里名稱 (石川、加老...)
+        </label>
+
+        <label class="toggle-item">
+          <input type="checkbox" id="showPointsToggle" checked onchange="togglePrescriptionLayer(this.checked)">
+          顯示生活處方資源點位 (281點)
+        </label>
+
+        <label class="toggle-item" style="color:#d95f0e;font-weight:700;">
+          <input type="checkbox" id="hoverSyncToggle" onchange="toggleHoverSync(this.checked)">
+          游標滑過即時連動顯示資料
         </label>
       </div>
 
-      <!-- Map Hover Box -->
+      <!-- Hover Quick Card -->
       <div id="hoverBox" class="map-hover-box" style="display: none;">
         <div class="map-hover-title" id="hoverTitle">村里名稱</div>
-        <div id="hoverContent">總人口: 0 人</div>
+        <div id="hoverContent">65歲以上人口: 0 人</div>
       </div>
 
-      <!-- Map Legend -->
-      <div id="mapLegend" class="map-legend">
-        <div class="map-legend-title" id="legendTitle">總人口數分級 (人)</div>
+      <!-- Left-Bottom Legend: 65歲以上人口數 (人) -->
+      <div id="mapLegend" class="legend-population">
+        <div class="legend-title" id="legendTitle">65歲以上人口數 (人)</div>
         <div class="legend-scale" id="legendScale"></div>
+      </div>
+
+      <!-- Right-Bottom Legend: 生活處方資源 (Matching Image) -->
+      <div class="legend-prescriptions">
+        <div class="legend-title">生活處方資源</div>
+        <div class="dot-item"><span class="point-dot" style="background:#e11d48;"></span> 社交 (76)</div>
+        <div class="dot-item"><span class="point-dot" style="background:#9333ea;"></span> 紓壓 (62)</div>
+        <div class="dot-item"><span class="point-dot" style="background:#16a34a;"></span> 運動 (33)</div>
+        <div class="dot-item"><span class="point-dot" style="background:#ea580c;"></span> 營養 (76)</div>
+        <div class="dot-item"><span class="point-dot" style="background:#0284c7;"></span> 睡眠 (17)</div>
+        <div class="dot-item"><span class="point-dot" style="background:#78350f;"></span> 藥物安全 (17)</div>
       </div>
     </div>
 
-    <!-- Sidebar Section -->
+    <!-- Right Sidebar / Demographic Detail View -->
     <aside id="sidebar">
-      <!-- Sidebar Header -->
+      <!-- Header -->
       <div class="sidebar-header">
         <div class="sidebar-title-area">
           <h2 id="panelVilName">
-            <i class="fa-solid fa-location-dot" style="color: var(--accent);"></i>
+            <i class="fa-solid fa-location-dot" style="color: #ef4444;"></i>
             <span>全草屯鎮總計</span>
           </h2>
-          <div class="sub-title" id="panelVilSub">行政區代碼: 10008030 ｜ 包含 27 個村里</div>
+          <div class="sub-title" id="panelVilSub">草屯鎮公所 ｜ 全鎮 27 個村里</div>
         </div>
-        <div class="sidebar-actions">
-          <button class="btn btn-light" style="color: var(--text-main);" onclick="copyTableData()" title="複製表格資料">
-            <i class="fa-regular fa-copy"></i>
+        <div>
+          <button class="table-btn" onclick="copyTableData()" title="複製表格內容">
+            <i class="fa-regular fa-copy"></i> 複製表格
           </button>
         </div>
       </div>
 
-      <!-- Sidebar Content -->
+      <!-- Content -->
       <div class="sidebar-content">
         
-        <!-- Key Stats Cards -->
+        <!-- Summary Cards -->
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-label">總人口數</div>
             <div class="stat-value" id="cardTotalPop">0</div>
             <div class="stat-sub" id="cardPopShare">佔全鎮 100%</div>
           </div>
-          <div class="stat-card" style="border-top-color: #3b82f6;">
+          <div class="stat-card elder">
+            <div class="stat-label">65歲以上長者</div>
+            <div class="stat-value" id="cardElderPop">0</div>
+            <div class="stat-sub" id="cardElderPct">0%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">老化指數 (%)</div>
+            <div class="stat-value" id="cardAgingIndex">0</div>
+            <div class="stat-sub">長者 / 幼年 * 100</div>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">0~14歲幼年</div>
+            <div class="stat-value" style="color:#10b981;" id="cardYouthPop">0</div>
+            <div class="stat-sub" id="cardYouthPct">0%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">15~64歲青壯</div>
+            <div class="stat-value" style="color:#2563eb;" id="cardWorkPop">0</div>
+            <div class="stat-sub" id="cardWorkPct">0%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">總扶養比 (%)</div>
+            <div class="stat-value" id="cardDepRatio">0</div>
+            <div class="stat-sub">(幼+老) / 青壯</div>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
             <div class="stat-label">男性人口</div>
             <div class="stat-value male-text" id="cardMalePop">0</div>
             <div class="stat-sub" id="cardMalePct">0%</div>
           </div>
-          <div class="stat-card" style="border-top-color: #ec4899;">
+          <div class="stat-card">
             <div class="stat-label">女性人口</div>
             <div class="stat-value female-text" id="cardFemalePop">0</div>
             <div class="stat-sub" id="cardFemalePct">0%</div>
           </div>
-        </div>
-
-        <div class="stats-grid">
-          <div class="stat-card success">
-            <div class="stat-label">幼年人口 (0-14歲)</div>
-            <div class="stat-value" style="color: #10b981;" id="cardYouthPop">0</div>
-            <div class="stat-sub" id="cardYouthPct">0%</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">青壯人口 (15-64歲)</div>
-            <div class="stat-value" style="color: #3b82f6;" id="cardWorkPop">0</div>
-            <div class="stat-sub" id="cardWorkPct">0%</div>
-          </div>
-          <div class="stat-card accent">
-            <div class="stat-label">高齡人口 (65歲+)</div>
-            <div class="stat-value" style="color: #f59e0b;" id="cardElderPop">0</div>
-            <div class="stat-sub" id="cardElderPct">0%</div>
-          </div>
-        </div>
-
-        <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-label">性別比 (女=100)</div>
             <div class="stat-value" id="cardSexRatio">0</div>
             <div class="stat-sub">男性 / 女性</div>
           </div>
-          <div class="stat-card">
-            <div class="stat-label">老化指數 (%)</div>
-            <div class="stat-value" id="cardAgingIndex">0</div>
-            <div class="stat-sub">老年 / 幼年 * 100</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">總扶養比 (%)</div>
-            <div class="stat-value" id="cardDepRatio">0</div>
-            <div class="stat-sub">扶幼比 + 扶老比</div>
-          </div>
         </div>
 
-        <!-- 3-stage Ratio Bar -->
+        <!-- 3-Stage Ratio Bar -->
         <div class="ratio-bar-box">
           <div class="ratio-bar-header">
-            <span>三階段人口年齡結構</span>
-            <span id="ratioBarSummary">幼年 0% ｜ 青壯 0% ｜ 老年 0%</span>
+            <span>年齡結構三階段比例</span>
+            <span id="ratioBarSummary" style="color:var(--text-muted);font-weight:600;">幼年 0% ｜ 青壯 0% ｜ 高齡 0%</span>
           </div>
           <div class="ratio-bar">
             <div id="barYouth" class="ratio-seg-youth" style="width: 15%;" title="幼年人口"></div>
@@ -894,35 +936,35 @@
           </div>
           <div class="ratio-bar-legend">
             <span><span class="dot" style="background:#10b981;"></span> 幼年 (0-14歲)</span>
-            <span><span class="dot" style="background:#3b82f6;"></span> 青壯年工作人口 (15-64歲)</span>
-            <span><span class="dot" style="background:#f59e0b;"></span> 高齡人口 (65歲以上)</span>
+            <span><span class="dot" style="background:#3b82f6;"></span> 青壯 (15-64歲)</span>
+            <span><span class="dot" style="background:#d95f0e;"></span> 高齡 (65歲以上)</span>
           </div>
         </div>
 
-        <!-- Population Pyramid Chart -->
+        <!-- Pyramid Chart -->
         <div class="chart-box">
           <div class="section-title">
-            <span><i class="fa-solid fa-chart-bar" style="color: var(--accent);"></i> 人口年齡金字塔 (每5歲男女分布)</span>
-            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">單位: 人</span>
+            <span><i class="fa-solid fa-chart-column" style="color:#d95f0e;"></i> 人口年齡金字塔 (每5歲男女結構)</span>
+            <span style="font-size:0.72rem;color:var(--text-muted);font-weight:normal;">單位: 人</span>
           </div>
           <div class="chart-container">
             <canvas id="pyramidChart"></canvas>
           </div>
         </div>
 
-        <!-- 5-Year Age Group Table -->
+        <!-- 5-Year Age Table -->
         <div class="table-section">
           <div class="table-toolbar">
             <div class="table-toolbar-title">
-              <i class="fa-solid fa-table-list" style="color: var(--accent);"></i>
+              <i class="fa-solid fa-table" style="color:#d95f0e;"></i>
               每差 5 歲年齡層人口明細表
             </div>
             <div class="table-toolbar-tools">
               <button class="table-btn" onclick="toggleAllSingles(true)">
-                <i class="fa-solid fa-angles-down"></i> 全部展開
+                <i class="fa-solid fa-angles-down"></i> 展開單歲
               </button>
               <button class="table-btn" onclick="toggleAllSingles(false)">
-                <i class="fa-solid fa-angles-up"></i> 全部折疊
+                <i class="fa-solid fa-angles-up"></i> 折疊
               </button>
             </div>
           </div>
@@ -931,13 +973,13 @@
             <table class="age-table" id="ageDetailTable">
               <thead>
                 <tr>
-                  <th style="width: 130px;">年齡組別</th>
-                  <th>合計人口</th>
+                  <th style="width: 120px;">年齡組別</th>
+                  <th>合計</th>
                   <th>佔比</th>
                   <th>男性 (男%)</th>
                   <th>女性 (女%)</th>
                   <th>性別比</th>
-                  <th style="width: 90px; text-align: center;">長條視覺</th>
+                  <th style="width: 80px; text-align: center;">視覺條</th>
                 </tr>
               </thead>
               <tbody id="ageTableBody">
