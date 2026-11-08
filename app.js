@@ -1,14 +1,15 @@
-// Caotun Population GIS System - Map and Dashboard Controller
+// Caotun Population and Lifestyle Prescriptions GIS System Controller
 
 let map = null;
 let geojsonLayer = null;
 let prescriptionLayerGroup = null;
 let labelMarkers = [];
 let selectedVillage = '總計';
-let currentTheme = 'elderly_count'; // Default to user image theme: 65歲以上人口數
+let currentTheme = 'elderly_count';
 let pyramidChart = null;
+let rxBarChart = null;
 let expandedGroups = new Set();
-let hoverSyncEnabled = false; // Toggle for mouseover instant update vs click
+let hoverSyncEnabled = false;
 
 // 5-Year Age Groups List
 const ageGroups = [
@@ -19,13 +20,7 @@ const ageGroups = [
   '100歲以上'
 ];
 
-// Exact Color Scale from User Reference Image: 65歲以上人口數 (人)
-// 192 - 382 : #ffffd4 (極淡米黃)
-// 382 - 540 : #fee391 (淡黃)
-// 540 - 664 : #fec44f (亮黃橘)
-// 664 - 838 : #fe9929 (暖橘)
-// 838 - 1059: #d95f0e (深橘紅)
-// 1059 - 1972: #993404 (深赭紅)
+// Reference Image Theme: 65歲以上人口數 (人)
 const elderlyCountTheme = {
   title: '65歲以上人口數 (人)',
   cuts: [382, 540, 664, 838, 1059],
@@ -33,18 +28,24 @@ const elderlyCountTheme = {
   labels: ['192 - 382', '382 - 540', '540 - 664', '664 - 838', '838 - 1059', '1059 - 1972']
 };
 
-// Prescription Categories and Colors from Image
-const prescriptionMeta = {
-  '社交': { color: '#e11d48', count: 76 },
-  '紓壓': { color: '#9333ea', count: 62 },
-  '運動': { color: '#16a34a', count: 33 },
-  '營養': { color: '#ea580c', count: 76 },
-  '睡眠': { color: '#0284c7', count: 17 },
-  '藥物安全': { color: '#78350f', count: 17 }
-};
+// Prescription Meta Definition
+const prescriptionMeta = [
+  { key: '社交', color: '#e11d48', icon: 'fa-users', total: 76 },
+  { key: '紓壓', color: '#9333ea', icon: 'fa-spa', total: 62 },
+  { key: '運動', color: '#16a34a', icon: 'fa-person-running', total: 33 },
+  { key: '營養', color: '#ea580c', icon: 'fa-bowl-food', total: 76 },
+  { key: '睡眠', color: '#0284c7', icon: 'fa-moon', total: 17 },
+  { key: '藥物安全', color: '#78350f', icon: 'fa-pills', total: 17 }
+];
 
-// Other Themes
+// Other Map Themes
 const otherThemes = {
+  'rx_total': {
+    title: '生活處方服務點數 (處)',
+    cuts: [5, 10, 15, 20, 30],
+    colors: ['#eff6ff', '#bfdbfe', '#60a5fa', '#3b82f6', '#1d4ed8', '#1e3a8a'],
+    labels: ['< 5 處', '5 - 10 處', '10 - 15 處', '15 - 20 處', '20 - 30 處', '≥ 30 處']
+  },
   'total_pop': {
     title: '總人口數 (人)',
     cuts: [1500, 2500, 4000, 6000, 8000],
@@ -57,12 +58,6 @@ const otherThemes = {
     colors: ['#fef3c7', '#fde68a', '#fcd34d', '#fbbf24', '#f59e0b', '#b45309'],
     labels: ['< 16%', '16% - 19%', '19% - 22%', '22% - 25%', '25% - 28%', '≥ 28%']
   },
-  'youth_pct': {
-    title: '0~14歲幼年比例 (%)',
-    cuts: [7, 9, 11, 13, 15],
-    colors: ['#e0f2fe', '#bae6fd', '#7dd3fc', '#38bdf8', '#0284c7', '#0369a1'],
-    labels: ['< 7%', '7% - 9%', '9% - 11%', '11% - 13%', '13% - 15%', '≥ 15%']
-  },
   'aging_index': {
     title: '老化指數 (老年/幼年*100)',
     cuts: [120, 160, 200, 250, 300],
@@ -73,7 +68,7 @@ const otherThemes = {
 
 // Initialize
 window.addEventListener('DOMContentLoaded', () => {
-  if (!window.GEO_DATA || !window.POP_DATA) {
+  if (!window.GEO_DATA || !window.POP_DATA || !window.PRESCRIPTION_BY_VILLAGE) {
     console.error('Data not loaded');
     return;
   }
@@ -92,24 +87,16 @@ function initMap() {
   });
 
   // Base layers
-  // 1. Pure Clean Paper Map (Matching user reference image)
-  const cleanCanvas = L.tileLayer('', {
-    attribution: '南投縣草屯鎮村里GIS圖資'
-  });
-
-  // 2. Carto Light
+  const cleanCanvas = L.tileLayer('', { attribution: '南投縣草屯鎮村里GIS圖資' });
   const cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; CARTO',
     maxZoom: 19
   });
-
-  // 3. OSM
   const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap',
     maxZoom: 18
   });
 
-  // Default: clean white canvas base for high visual match
   cleanCanvas.addTo(map);
 
   L.control.layers({
@@ -118,13 +105,10 @@ function initMap() {
     '標準道路底圖 (OSM)': osmLayer
   }, null, { position: 'topleft' }).addTo(map);
 
-  // GeoJSON Village Layer
   renderGeojsonLayer();
 
-  // Prescriptions Point Layer
   prescriptionLayerGroup = L.layerGroup().addTo(map);
 
-  // Fit Bounds
   if (geojsonLayer && geojsonLayer.getBounds().isValid()) {
     map.fitBounds(geojsonLayer.getBounds(), { padding: [20, 20] });
   }
@@ -151,7 +135,7 @@ function renderGeojsonLayer() {
   }
 }
 
-// Village Polygon Styling (Matching image)
+// Village Polygon Styling
 function featureStyle(feature) {
   const vilName = feature.properties.VILLNAME;
   const isSelected = (vilName === selectedVillage);
@@ -170,10 +154,9 @@ function featureStyle(feature) {
 
   return {
     fillColor: fillColor,
-    weight: isSelected ? 3.5 : 1.2,
+    weight: isSelected ? 3.8 : 1.2,
     opacity: 1,
-    color: isSelected ? '#1d4ed8' : '#44403c', // Selected gets rich blue outline; else dark charcoal line
-    dashArray: '',
+    color: isSelected ? '#1d4ed8' : '#44403c',
     fillOpacity: fillOpacity
   };
 }
@@ -201,7 +184,6 @@ function onEachFeature(feature, layer) {
   const props = feature.properties;
   const vilName = props.VILLNAME;
 
-  // Mouseover
   layer.on('mouseover', function(e) {
     if (vilName !== selectedVillage) {
       layer.setStyle({
@@ -218,7 +200,6 @@ function onEachFeature(feature, layer) {
     }
   });
 
-  // Mouseout
   layer.on('mouseout', function(e) {
     if (vilName !== selectedVillage) {
       geojsonLayer.resetStyle(layer);
@@ -226,20 +207,19 @@ function onEachFeature(feature, layer) {
     hideHoverInfo();
   });
 
-  // Click
   layer.on('click', function(e) {
     selectVillage(vilName, true);
   });
 }
 
-// Render Village Labels on Polygons
+// Render Village Labels
 function createLabelMarkers() {
   clearLabelMarkers();
   if (!window.GEO_DATA || !window.GEO_DATA.features) return;
 
   window.GEO_DATA.features.forEach(feat => {
     const props = feat.properties;
-    const name = props.VILLNAME.replace('里', ''); // Match image: short village names like "石川", "加老", "平林"
+    const name = props.VILLNAME.replace('里', '');
     const center = getFeatureCenter(feat);
     if (center) {
       const icon = L.divIcon({
@@ -288,17 +268,18 @@ function getFeatureCenter(feature) {
   return ptCount > 0 ? [totalX / ptCount, totalY / ptCount] : null;
 }
 
-// Render Prescription Points (生活處方資源點位)
+// Render Prescription Points (生活處方點位)
 function renderPrescriptionPoints() {
   if (!prescriptionLayerGroup || !window.PRESCRIPTION_DATA) return;
   prescriptionLayerGroup.clearLayers();
 
-  const activePoints = window.PRESCRIPTION_DATA;
+  window.PRESCRIPTION_DATA.forEach(pt => {
+    const coords = pt.geometry ? pt.geometry.coordinates : [pt.lng, pt.lat];
+    const pProps = pt.properties || pt;
 
-  activePoints.forEach(pt => {
-    const marker = L.circleMarker([pt.lat, pt.lng], {
+    const marker = L.circleMarker([coords[1], coords[0]], {
       radius: 4.8,
-      fillColor: pt.color,
+      fillColor: pProps.color,
       color: '#ffffff',
       weight: 1.2,
       opacity: 1,
@@ -307,11 +288,11 @@ function renderPrescriptionPoints() {
 
     marker.bindPopup(`
       <div style="font-family:'Noto Sans TC',sans-serif;font-size:0.85rem;line-height:1.5;">
-        <div style="font-weight:700;color:${pt.color};margin-bottom:3px;">
-          <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${pt.color};margin-right:4px;"></span>
-          [${pt.category}] ${pt.name}
+        <div style="font-weight:700;color:${pProps.color};margin-bottom:3px;">
+          <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${pProps.color};margin-right:4px;"></span>
+          [${pProps.category}] ${pProps.name}
         </div>
-        <div style="color:#475569;font-size:0.78rem;">${pt.description || '長照/生活處方服務資源點位'}</div>
+        <div style="color:#475569;font-size:0.78rem;">${pProps.description || '長照/生活處方服務資源點位'}</div>
       </div>
     `);
 
@@ -328,18 +309,27 @@ function togglePrescriptionLayer(show) {
   }
 }
 
-// Hover Box
+// Hover Box with both Population and Prescriptions
 function showHoverInfo(props) {
   const box = document.getElementById('hoverBox');
   if (!box) return;
-  document.getElementById('hoverTitle').textContent = props.VILLNAME;
+  const vilName = props.VILLNAME;
+  document.getElementById('hoverTitle').textContent = vilName;
   const tot = props.total_pop || 0;
   const c65 = props.pop_65_plus || 0;
   const elderPct = props.elderly_pct || 0;
 
+  const rxData = window.PRESCRIPTION_BY_VILLAGE.villages[vilName] || { 合計: 0, 社交: 0, 紓壓: 0, 運動: 0, 營養: 0, 睡眠: 0, 藥物安全: 0 };
+
   document.getElementById('hoverContent').innerHTML = `
     <div style="font-size:0.85rem;"><strong>65歲以上人口：</strong><span style="color:#f59e0b;font-weight:700;">${c65.toLocaleString()} 人</span> (${elderPct}%)</div>
-    <div style="font-size:0.8rem;color:#94a3b8;margin-top:2px;">總人口：${tot.toLocaleString()} 人 ｜ 老化指數：${props.aging_index || 0}</div>
+    <div style="font-size:0.8rem;color:#cbd5e1;margin-top:2px;">總人口：${tot.toLocaleString()} 人 ｜ 老化指數：${props.aging_index || 0}</div>
+    <div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.25);font-size:0.8rem;color:#a7f3d0;">
+      <strong>生活處方服務點：${rxData.合計} 處</strong>
+      <div style="font-size:0.72rem;color:#e2e8f0;margin-top:1px;">
+        社交${rxData.社交} ｜ 紓壓${rxData.紓壓} ｜ 運動${rxData.運動} ｜ 營養${rxData.營養} ｜ 睡眠${rxData.睡眠} ｜ 藥安${rxData.藥物安全}
+      </div>
+    </div>
   `;
   box.style.display = 'block';
 }
@@ -349,7 +339,7 @@ function hideHoverInfo() {
   if (box) box.style.display = 'none';
 }
 
-// Village Selector dropdown
+// Village Selector
 function initVillageSelect() {
   const sel = document.getElementById('villageSelect');
   if (!sel) return;
@@ -357,7 +347,7 @@ function initVillageSelect() {
 
   const optAll = document.createElement('option');
   optAll.value = '總計';
-  optAll.textContent = '🌟 全草屯鎮總計 (98,247人)';
+  optAll.textContent = '🌟 全草屯鎮總計 (98,247人 ｜ 處方點281處)';
   sel.appendChild(optAll);
 
   const sortedVillages = [...window.GEO_DATA.features].sort((a,b) => 
@@ -366,9 +356,11 @@ function initVillageSelect() {
 
   sortedVillages.forEach(feat => {
     const p = feat.properties;
+    const vName = p.VILLNAME;
+    const rx = window.PRESCRIPTION_BY_VILLAGE.villages[vName] || { 合計: 0 };
     const opt = document.createElement('option');
-    opt.value = p.VILLNAME;
-    opt.textContent = `${p.VILLNAME} (65歲+: ${p.pop_65_plus}人, 總: ${p.total_pop.toLocaleString()}人)`;
+    opt.value = vName;
+    opt.textContent = `${vName} (65歲+: ${p.pop_65_plus}人 ｜ 處方點: ${rx.合計}處)`;
     sel.appendChild(opt);
   });
 }
@@ -377,20 +369,19 @@ function onSelectVillageChange(val) {
   selectVillage(val, true);
 }
 
-// Select Village Action (Immediate update of 5-year table & charts)
+// Select Village
 function selectVillage(vilName, zoomToFeature = false) {
   selectedVillage = vilName;
   const sel = document.getElementById('villageSelect');
   if (sel) sel.value = vilName;
 
-  // Update Map Styles
   if (geojsonLayer) {
     geojsonLayer.eachLayer(layer => {
       const isMatch = (layer.feature.properties.VILLNAME === vilName);
       if (isMatch) {
         layer.setStyle({
           weight: 4,
-          color: '#1d4ed8', // Bold royal blue outline
+          color: '#1d4ed8',
           fillOpacity: 1
         });
         layer.bringToFront();
@@ -408,16 +399,13 @@ function selectVillage(vilName, zoomToFeature = false) {
     }
   }
 
-  // Update Panel Data Immediately
   updateInfoPanel(vilName);
 }
 
-// Reset View
 function resetMapView() {
   selectVillage('總計', true);
 }
 
-// Change Theme
 function changeMapTheme(themeKey) {
   currentTheme = themeKey;
   if (geojsonLayer) {
@@ -431,12 +419,11 @@ function changeMapTheme(themeKey) {
   updateLegends();
 }
 
-// Toggle Hover Mode
 function toggleHoverSync(checked) {
   hoverSyncEnabled = checked;
 }
 
-// Update Legends (Showing both Population & Prescriptions matching image)
+// Legends Update
 function updateLegends() {
   const scaleElem = document.getElementById('legendScale');
   const titleElem = document.getElementById('legendTitle');
@@ -454,7 +441,7 @@ function updateLegends() {
       `;
     }
     scaleElem.innerHTML = html;
-  } else {
+  } else if (otherThemes[currentTheme]) {
     const cfg = otherThemes[currentTheme];
     titleElem.textContent = cfg.title;
     let html = '';
@@ -470,7 +457,7 @@ function updateLegends() {
   }
 }
 
-// Update Info Panel (5-year table, pyramid, stats)
+// Update Info Panel
 function updateInfoPanel(vilName) {
   const data = window.POP_DATA[vilName];
   if (!data) return;
@@ -489,13 +476,13 @@ function updateInfoPanel(vilName) {
   const panelSub = document.getElementById('panelVilSub');
   if (vilName === '總計') {
     panelName.innerHTML = `<i class="fa-solid fa-tree-city" style="color:var(--accent);"></i> <span>全草屯鎮總計</span>`;
-    panelSub.textContent = `草屯鎮公所 ｜ 全鎮 27 個村里總人口`;
+    panelSub.textContent = `草屯鎮公所 ｜ 全轄共 27 個村里 ｜ 處方服務點 281 處`;
   } else {
     const feat = window.GEO_DATA.features.find(f => f.properties.VILLNAME === vilName);
     const code = feat ? feat.properties.VILLCODE : '';
     const eng = feat ? feat.properties.VILLENG : '';
     panelName.innerHTML = `<i class="fa-solid fa-location-dot" style="color:#ef4444;"></i> <span>${vilName}</span>`;
-    panelSub.textContent = `${eng} ｜ 村里代碼: ${code} ｜ 游標已選中`;
+    panelSub.textContent = `${eng} ｜ 代碼: ${code} ｜ 游標選取村里`;
   }
 
   // Broad groups
@@ -515,7 +502,7 @@ function updateInfoPanel(vilName) {
   const agingIndex = c_0_14 > 0 ? ((c_65_plus / c_0_14) * 100).toFixed(1) : '-';
   const depRatio = c_15_64 > 0 ? (((c_0_14 + c_65_plus) / c_15_64) * 100).toFixed(1) : '-';
 
-  // Update Stats Cards
+  // Update Population Stats Cards
   document.getElementById('cardTotalPop').textContent = totalPop.toLocaleString();
   document.getElementById('cardPopShare').textContent = vilName === '總計' ? '佔全鎮 100%' : `佔全鎮 ${((totalPop / townTotal) * 100).toFixed(2)}%`;
 
@@ -544,11 +531,106 @@ function updateInfoPanel(vilName) {
   document.getElementById('barElder').style.width = elderPct + '%';
   document.getElementById('ratioBarSummary').textContent = `幼年 ${youthPct}% ｜ 青壯 ${workPct}% ｜ 高齡 ${elderPct}%`;
 
+  // Render Prescription Stats for this Village
+  renderPrescriptionTable(vilName);
+
   // Render Pyramid Chart
   renderPyramidChart(totData, maleData, femData);
 
   // Render 5-year Table
   renderAgeTable(totData, maleData, femData);
+}
+
+// Render Prescription Statistics Table for Village (New Requirement)
+function renderPrescriptionTable(vilName) {
+  const rxSection = document.getElementById('rxStatsSection');
+  if (!rxSection) return;
+
+  const isTownTotal = (vilName === '總計');
+  const rxData = isTownTotal 
+    ? window.PRESCRIPTION_BY_VILLAGE.town_total 
+    : (window.PRESCRIPTION_BY_VILLAGE.villages[vilName] || { 合計: 0, 社交: 0, 紓壓: 0, 運動: 0, 營養: 0, 睡眠: 0, 藥物安全: 0, items: [] });
+
+  const totalPoints = rxData.合計 || 0;
+  const townTotalPoints = window.PRESCRIPTION_BY_VILLAGE.town_total.合計 || 281;
+
+  document.getElementById('rxTotalBadge').textContent = `${totalPoints} 處服務點`;
+  document.getElementById('rxShareText').textContent = isTownTotal 
+    ? '全鎮 6 種處方點位涵蓋 27 個村里' 
+    : `佔全鎮生活處方資源 ${((totalPoints / townTotalPoints) * 100).toFixed(1)}%`;
+
+  // Prescription Summary Table Body
+  const tbody = document.getElementById('rxTableBody');
+  tbody.innerHTML = '';
+
+  prescriptionMeta.forEach(meta => {
+    const count = rxData[meta.key] || 0;
+    const vilPct = totalPoints > 0 ? ((count / totalPoints) * 100).toFixed(1) : 0;
+    const townPct = meta.total > 0 ? ((count / meta.total) * 100).toFixed(1) : 0;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${meta.color};"></span>
+          <strong>${meta.key}</strong>
+        </div>
+      </td>
+      <td style="text-align:right;">
+        <span style="font-size:1rem;font-weight:800;color:${meta.color};font-family:'Outfit',sans-serif;">${count}</span> 處
+      </td>
+      <td style="text-align:right;">${vilPct}%</td>
+      <td style="text-align:right;color:#64748b;">${count} / ${meta.total} (${townPct}%)</td>
+      <td style="width:70px;">
+        <div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
+          <div style="height:100%;background:${meta.color};width:${vilPct}%;"></div>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Items list container
+  const itemsContainer = document.getElementById('rxItemsList');
+  if (itemsContainer) {
+    if (!isTownTotal && rxData.items && rxData.items.length > 0) {
+      itemsContainer.style.display = 'block';
+      let listHtml = `
+        <div style="font-size:0.78rem;font-weight:700;color:#292524;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+          <span>【${vilName}】各服務點名單 (${rxData.items.length} 處)：</span>
+          <button class="table-btn" onclick="toggleRxList()" id="btnToggleRxList">收合清單</button>
+        </div>
+        <div id="rxListContent" style="max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">
+      `;
+      rxData.items.forEach((it, idx) => {
+        const catMeta = prescriptionMeta.find(m => m.key === it.category) || { color: '#64748b' };
+        listHtml += `
+          <div style="padding:4px 8px;border-radius:4px;background:#f8fafc;border:1px solid #e2e8f0;font-size:0.75rem;display:flex;justify-content:space-between;align-items:center;">
+            <span><strong style="color:${catMeta.color};">[${it.category}]</strong> ${it.name}</span>
+            <span style="font-size:0.68rem;color:#64748b;">${it.desc ? it.desc.slice(0, 15) : ''}</span>
+          </div>
+        `;
+      });
+      listHtml += '</div>';
+      itemsContainer.innerHTML = listHtml;
+    } else {
+      itemsContainer.style.display = 'none';
+      itemsContainer.innerHTML = '';
+    }
+  }
+}
+
+function toggleRxList() {
+  const content = document.getElementById('rxListContent');
+  const btn = document.getElementById('btnToggleRxList');
+  if (!content) return;
+  if (content.style.display === 'none') {
+    content.style.display = 'flex';
+    btn.textContent = '收合清單';
+  } else {
+    content.style.display = 'none';
+    btn.textContent = '展開清單';
+  }
 }
 
 // Render Pyramid
@@ -603,9 +685,7 @@ function renderPyramidChart(totData, maleData, femData) {
         },
         legend: {
           position: 'top',
-          labels: {
-            font: { family: 'Noto Sans TC', size: 12, weight: 600 }
-          }
+          labels: { font: { family: 'Noto Sans TC', size: 12, weight: 600 } }
         }
       },
       scales: {
@@ -638,7 +718,7 @@ function renderAgeTable(totData, maleData, femData) {
   const totalPop = totData.total;
   const maxGroupCount = Math.max(...totData.groups.map(g => g.count), 1);
 
-  // 1. Total row
+  // Total row
   const totMale = maleData.total;
   const totFem = femData.total;
   const totSexRatio = totFem > 0 ? ((totMale / totFem) * 100).toFixed(1) : '-';
@@ -656,7 +736,7 @@ function renderAgeTable(totData, maleData, femData) {
   `;
   tbody.appendChild(trTotal);
 
-  // 2. 5-Year rows
+  // 5-Year rows
   totData.groups.forEach((gData, idx) => {
     const gName = gData.group;
     const count = gData.count;
@@ -671,8 +751,6 @@ function renderAgeTable(totData, maleData, femData) {
     const barWidth = Math.round((count / maxGroupCount) * 65);
     const hasSingles = Object.keys(gData.singles).length > 0;
     const isExpanded = expandedGroups.has(gName);
-
-    // Highlight 65+ rows with subtle amber background
     const isElderlyGroup = idx >= 13;
 
     const trGroup = document.createElement('tr');
@@ -681,7 +759,7 @@ function renderAgeTable(totData, maleData, femData) {
 
     let toggleBtnHtml = hasSingles ? `
       <i class="fa-solid fa-chevron-right toggle-icon ${isExpanded ? 'expanded' : ''}" id="icon-${idx}"></i>
-    ` : `<span style="display:inline-block;width:12px;"></span>`;
+    ` : `<span style="display:inline-block;width:10px;"></span>`;
 
     trGroup.innerHTML = `
       <td>
@@ -708,7 +786,6 @@ function renderAgeTable(totData, maleData, femData) {
 
     tbody.appendChild(trGroup);
 
-    // Single age rows
     if (hasSingles) {
       Object.keys(gData.singles).forEach(sAge => {
         const sTot = gData.singles[sAge];
@@ -767,13 +844,29 @@ function toggleAllSingles(expandAll) {
   });
 }
 
-// Export CSV
+// Export CSV (Including Prescriptions Summary)
 function exportCurrentCSV() {
   const vilData = window.POP_DATA[selectedVillage];
   if (!vilData) return;
 
+  const rxData = (selectedVillage === '總計')
+    ? window.PRESCRIPTION_BY_VILLAGE.town_total
+    : (window.PRESCRIPTION_BY_VILLAGE.villages[selectedVillage] || { 合計: 0, 社交: 0, 紓壓: 0, 運動: 0, 營養: 0, 睡眠: 0, 藥物安全: 0 });
+
   const lines = [];
-  lines.push(`\uFEFF草屯鎮${selectedVillage}人口年齡分布明細表 (2026年9月)`);
+  lines.push(`\uFEFF草屯鎮${selectedVillage}人口年齡分布與生活處方資源明細表 (2026年9月)`);
+  lines.push('');
+  lines.push('【生活處方服務點統計】');
+  lines.push(`處方類別,服務點數量,佔該里處方比率(%),佔全鎮該類處方比率(%)`);
+  lines.push(`處方合計,${rxData.合計},100%,${((rxData.合計/281)*100).toFixed(2)}%`);
+  prescriptionMeta.forEach(m => {
+    const c = rxData[m.key] || 0;
+    const vPct = rxData.合計 > 0 ? ((c / rxData.合計) * 100).toFixed(2) : 0;
+    const tPct = ((c / m.total) * 100).toFixed(2);
+    lines.push(`"${m.key}",${c},${vPct}%,${tPct}%`);
+  });
+  lines.push('');
+  lines.push('【人口每差5歲年齡分布統計】');
   lines.push('年齡組別,合計人口,佔總人口比率(%),男性人口,男性佔該組(%),女性人口,女性佔該組(%),性別比');
 
   const totData = vilData['合計'];
@@ -813,7 +906,7 @@ function exportCurrentCSV() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `草屯鎮_${selectedVillage}_人口年齡層資料_202609.csv`);
+  link.setAttribute('download', `草屯鎮_${selectedVillage}_人口與處方資料_202609.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -823,7 +916,7 @@ function exportCurrentCSV() {
 function copyTableData() {
   const table = document.getElementById('ageDetailTable');
   if (!table) return;
-  const lines = [`草屯鎮 ${selectedVillage} 2026年9月 性別年齡層人口統計`];
+  const lines = [`草屯鎮 ${selectedVillage} 2026年9月 性別年齡層人口與生活處方統計`];
   const rows = table.querySelectorAll('tr');
   rows.forEach(r => {
     const cells = Array.from(r.children).map(c => c.textContent.trim().replace(/\s+/g, ' '));
