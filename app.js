@@ -1,15 +1,12 @@
-// Caotun Population and Lifestyle Prescriptions GIS System Controller (v20261028)
+// Caotun Population and Lifestyle Prescriptions GIS System Controller (v20261108_fixed)
 
 let map = null;
 let geojsonLayer = null;
 let prescriptionLayerGroup = null;
 let labelMarkers = [];
-let selectedVillage = '總計'; // Current locked/selected village
-let currentHoverVillage = null;
-let currentTheme = 'elderly_count';
+let selectedVillage = '總計';
 let pyramidChart = null;
 let expandedGroups = new Set();
-let isHoverSync = true; // Enabled by default: instant hover update!
 
 // 5-Year Age Groups List
 const ageGroups = [
@@ -20,7 +17,7 @@ const ageGroups = [
   '100歲以上'
 ];
 
-// Reference Image Theme: 65歲以上人口數 (人)
+// Color Theme from User Reference Image: 65歲以上人口數 (人)
 const elderlyCountTheme = {
   title: '65歲以上人口數 (人)',
   cuts: [382, 540, 664, 838, 1059],
@@ -28,12 +25,12 @@ const elderlyCountTheme = {
   labels: ['192 - 382', '382 - 540', '540 - 664', '664 - 838', '838 - 1059', '1059 - 1972']
 };
 
-// Prescription Meta Definition (From user uploaded KML: total 280)
+// 6 Lifestyle Prescriptions Definition (From user uploaded KML: 280 points)
 const prescriptionMeta = [
   { key: '社交', color: '#e11d48', icon: 'fa-users', total: 77 },
   { key: '紓壓', color: '#9333ea', icon: 'fa-spa', total: 62 },
-  { key: '運動', color: '#16a34a', icon: 'fa-person-running', total: 33 },
   { key: '營養', color: '#ea580c', icon: 'fa-bowl-food', total: 74 },
+  { key: '運動', color: '#16a34a', icon: 'fa-person-running', total: 33 },
   { key: '睡眠', color: '#0284c7', icon: 'fa-moon', total: 17 },
   { key: '藥物安全', color: '#78350f', icon: 'fa-pills', total: 17 }
 ];
@@ -66,20 +63,20 @@ const otherThemes = {
   }
 };
 
-// Robust helper to get prescription stats for a village
+// Safe Getter for Village Prescription Stats (100% Guaranteed Non-empty)
 function getVillageRxStats(vilName) {
-  if (vilName === '總計') {
+  if (!vilName || vilName === '總計') {
     if (window.PRESCRIPTION_BY_VILLAGE && window.PRESCRIPTION_BY_VILLAGE.town_total) {
       return window.PRESCRIPTION_BY_VILLAGE.town_total;
     }
-    return { '社交': 77, '紓壓': 62, '運動': 33, '營養': 74, '睡眠': 17, '藥物安全': 17, '合計': 280, items: [] };
+    return { '社交': 77, '紓壓': 62, '營養': 74, '運動': 33, '睡眠': 17, '藥物安全': 17, '合計': 280, items: [] };
   }
 
   if (window.PRESCRIPTION_BY_VILLAGE && window.PRESCRIPTION_BY_VILLAGE.villages && window.PRESCRIPTION_BY_VILLAGE.villages[vilName]) {
     return window.PRESCRIPTION_BY_VILLAGE.villages[vilName];
   }
 
-  // Fallback to geo_data properties
+  // Fallback to feature properties in GEO_DATA
   if (window.GEO_DATA && window.GEO_DATA.features) {
     const feat = window.GEO_DATA.features.find(f => f.properties.VILLNAME === vilName);
     if (feat && feat.properties) {
@@ -87,8 +84,8 @@ function getVillageRxStats(vilName) {
       return {
         '社交': p.rx_social || 0,
         '紓壓': p.rx_stress || 0,
-        '運動': p.rx_sport || 0,
         '營養': p.rx_nutrition || 0,
+        '運動': p.rx_sport || 0,
         '睡眠': p.rx_sleep || 0,
         '藥物安全': p.rx_medication || 0,
         '合計': p.rx_total || 0,
@@ -97,10 +94,10 @@ function getVillageRxStats(vilName) {
     }
   }
 
-  return { '社交': 0, '紓壓': 0, '運動': 0, '營養': 0, '睡眠': 0, '藥物安全': 0, '合計': 0, items: [] };
+  return { '社交': 0, '紓壓': 0, '營養': 0, '運動': 0, '睡眠': 0, '藥物安全': 0, '合計': 0, items: [] };
 }
 
-// Initialize
+// Initialize Application
 window.addEventListener('DOMContentLoaded', () => {
   initMap();
   initVillageSelect();
@@ -108,7 +105,7 @@ window.addEventListener('DOMContentLoaded', () => {
   updateInfoPanel('總計');
 });
 
-// Init Map
+// Init Leaflet Map
 function initMap() {
   map = L.map('map', {
     center: [23.985, 120.735],
@@ -166,10 +163,10 @@ function renderGeojsonLayer() {
   }
 }
 
-// Village Polygon Styling
+// Polygon Styling
 function featureStyle(feature) {
   const vilName = feature.properties.VILLNAME;
-  const isSelected = (vilName === selectedVillage) || (vilName === currentHoverVillage);
+  const isSelected = (vilName === selectedVillage);
 
   let fillColor = '#ffffd4';
   let fillOpacity = 0.95;
@@ -210,13 +207,12 @@ function getColorForValue(val, cfg) {
   return cfg.colors[cfg.colors.length - 1];
 }
 
-// On Each Village: mouseover instantly displays data in right panel!
+// On Each Village: Instant Cursor Hover Updates Right Panel!
 function onEachFeature(feature, layer) {
   const props = feature.properties;
   const vilName = props.VILLNAME;
 
   layer.on('mouseover', function(e) {
-    currentHoverVillage = vilName;
     if (vilName !== selectedVillage) {
       layer.setStyle({
         weight: 3.2,
@@ -227,21 +223,18 @@ function onEachFeature(feature, layer) {
     }
     showHoverInfo(props);
 
-    // Instant update of right sidebar panel!
-    if (isHoverSync) {
-      updateInfoPanel(vilName);
-    }
+    // Instant update of right sidebar panel upon cursor hover!
+    updateInfoPanel(vilName);
   });
 
   layer.on('mouseout', function(e) {
-    currentHoverVillage = null;
     if (vilName !== selectedVillage) {
       geojsonLayer.resetStyle(layer);
     }
     hideHoverInfo();
 
-    // If mouse left polygon and hover-sync is on, revert to currently locked village
-    if (isHoverSync && selectedVillage) {
+    // Revert right sidebar to currently selected village
+    if (selectedVillage) {
       updateInfoPanel(selectedVillage);
     }
   });
@@ -251,7 +244,7 @@ function onEachFeature(feature, layer) {
   });
 }
 
-// Render Village Labels
+// Render Village Labels on Polygons
 function createLabelMarkers() {
   clearLabelMarkers();
   if (!window.GEO_DATA || !window.GEO_DATA.features) return;
@@ -307,7 +300,7 @@ function getFeatureCenter(feature) {
   return ptCount > 0 ? [totalX / ptCount, totalY / ptCount] : null;
 }
 
-// Render Prescription Points (生活處方點位)
+// Render Prescription Points (280 points from user KML)
 function renderPrescriptionPoints() {
   if (!prescriptionLayerGroup || !window.PRESCRIPTION_DATA) return;
   prescriptionLayerGroup.clearLayers();
@@ -348,7 +341,7 @@ function togglePrescriptionLayer(show) {
   }
 }
 
-// Hover Quick Card
+// Hover Box
 function showHoverInfo(props) {
   const box = document.getElementById('hoverBox');
   if (!box) return;
@@ -366,7 +359,7 @@ function showHoverInfo(props) {
     <div style="margin-top:5px;padding-top:4px;border-top:1px dashed rgba(255,255,255,0.25);font-size:0.8rem;color:#a7f3d0;">
       <strong>生活處方服務點：${rxData.合計} 處</strong>
       <div style="font-size:0.72rem;color:#e2e8f0;margin-top:1px;">
-        社交: ${rxData['社交']} ｜ 紓壓: ${rxData['紓壓']} ｜ 運動: ${rxData['運動']} ｜ 營養: ${rxData['營養']} ｜ 睡眠: ${rxData['睡眠']} ｜ 藥安: ${rxData['藥物安全']}
+        社交: ${rxData['社交']} ｜ 紓壓: ${rxData['紓壓']} ｜ 營養: ${rxData['營養']} ｜ 運動: ${rxData['運動']} ｜ 睡眠: ${rxData['睡眠']} ｜ 藥安: ${rxData['藥物安全']}
       </div>
     </div>
   `;
@@ -458,10 +451,6 @@ function changeMapTheme(themeKey) {
   updateLegends();
 }
 
-function toggleHoverSync(checked) {
-  isHoverSync = checked;
-}
-
 // Legends Update
 function updateLegends() {
   const scaleElem = document.getElementById('legendScale');
@@ -496,7 +485,7 @@ function updateLegends() {
   }
 }
 
-// Update Right Sidebar Info Panel
+// Update Right Sidebar Info Panel (Immediately Updates on Cursor Hover or Click!)
 function updateInfoPanel(vilName) {
   if (!window.POP_DATA || !window.POP_DATA[vilName]) return;
 
@@ -521,7 +510,7 @@ function updateInfoPanel(vilName) {
     const code = feat ? feat.properties.VILLCODE : '';
     const eng = feat ? feat.properties.VILLENG : '';
     panelName.innerHTML = `<i class="fa-solid fa-location-dot" style="color:#ef4444;"></i> <span>${vilName}</span>`;
-    panelSub.textContent = `${eng} ｜ 代碼: ${code} ｜ 游標即時統計`;
+    panelSub.textContent = `${eng} ｜ 代碼: ${code} ｜ 游標即時統計資料`;
   }
 
   // Broad groups
@@ -570,7 +559,7 @@ function updateInfoPanel(vilName) {
   document.getElementById('barElder').style.width = elderPct + '%';
   document.getElementById('ratioBarSummary').textContent = `幼年 ${youthPct}% ｜ 青壯 ${workPct}% ｜ 高齡 ${elderPct}%`;
 
-  // Render Prescription Statistics Table (Always Guaranteed to Populate!)
+  // Render 6 Lifestyle Prescriptions Table (Guaranteed 100% to Populate)
   renderPrescriptionTable(vilName);
 
   // Render Pyramid Chart
@@ -582,20 +571,25 @@ function updateInfoPanel(vilName) {
 
 // Render Prescription Statistics Table for Selected/Hovered Village
 function renderPrescriptionTable(vilName) {
-  const rxSection = document.getElementById('rxStatsSection');
   const tbody = document.getElementById('rxTableBody');
-  if (!rxSection || !tbody) return;
+  const badge = document.getElementById('rxTotalBadge');
+  const share = document.getElementById('rxShareText');
+  if (!tbody) return;
 
-  const isTownTotal = (vilName === '總計');
+  const isTownTotal = (!vilName || vilName === '總計');
   const rxData = getVillageRxStats(vilName);
 
   const totalPoints = rxData.合計 || 0;
   const townTotalPoints = 280;
 
-  document.getElementById('rxTotalBadge').textContent = `${totalPoints} 處服務點`;
-  document.getElementById('rxShareText').textContent = isTownTotal 
-    ? '【全草屯鎮】6 種生活處方資源服務點涵蓋 27 個村里' 
-    : `【${vilName}】佔全鎮生活處方資源 ${((totalPoints / townTotalPoints) * 100).toFixed(1)}%`;
+  if (badge) {
+    badge.textContent = `${totalPoints} 處服務點`;
+  }
+  if (share) {
+    share.textContent = isTownTotal 
+      ? '【全草屯鎮總計】6 種生活處方資源服務點共 280 處，涵蓋 27 個村里' 
+      : `【${vilName}】生活處方服務點共 ${totalPoints} 處，佔全鎮 ${((totalPoints / townTotalPoints) * 100).toFixed(1)}%`;
+  }
 
   tbody.innerHTML = '';
 
@@ -946,7 +940,7 @@ function exportCurrentCSV() {
   document.body.removeChild(link);
 }
 
-// Copy
+// Copy Table
 function copyTableData() {
   const table = document.getElementById('ageDetailTable');
   if (!table) return;
